@@ -3,41 +3,34 @@ from pyPhenology.models import validation
 import pytest
 import sys
 
-doy, temp = utils.load_test_data()
+obs, temp = utils.load_test_data()
 
-quick_optimization = {'maxiter':5, 'popsize':10, 'disp':True}
+quick_DE_optimization = {'maxiter':5, 'popsize':10, 'disp':False}
 
 
 model_test_cases=[]
+# Bootstrap requires some special arguments
 model_test_cases.append({'model_name':'BootstrapModel',
                          'model_func': models.BootstrapModel,
-                         'fit_params':{'optimizer_params':quick_optimization},
+                         'fit_params':{'optimizer_params':quick_DE_optimization},
                          'initial_params':{'num_bootstraps':10,
-                                           'core_model':models.Thermal_Time}})
-model_test_cases.append({'model_name':'Uniforc',
-                         'model_func': models.Uniforc,
-                         'fit_params':{'optimizer_params':quick_optimization},
-                         'initial_params':{}})
-model_test_cases.append({'model_name':'Unichill',
-                         'model_func': models.Uniforc,
-                         'fit_params':{'optimizer_params':quick_optimization},
-                         'initial_params':{}})
-model_test_cases.append({'model_name':'Thermal_Time',
-                         'model_func': models.Thermal_Time,
-                         'fit_params':{'optimizer_params':quick_optimization},
-                         'initial_params':{}})
-model_test_cases.append({'model_name':'Alternating',
-                         'model_func': models.Alternating,
-                         'fit_params':{'optimizer_params':quick_optimization},
-                         'initial_params':{}})
-model_test_cases.append({'model_name':'MSB',
-                         'model_func': models.MSB,
-                         'fit_params':{'optimizer_params':quick_optimization},
-                         'initial_params':{}})
-model_test_cases.append({'model_name':'Linear',
-                         'model_func': models.Linear,
-                         'fit_params':{'optimizer_params':quick_optimization},
-                         'initial_params':{}})
+                                           'core_model':models.ThermalTime}})
+
+# The rest can all be tested the same way
+model_names = ['Uniforc','Unichill','ThermalTime','Alternating','MSB','Linear']
+
+for name in model_names:
+    model_test_cases.append({'model_name':name,
+                             'model_func': utils.load_model(name),
+                             'fit_params':{'optimizer_params':quick_DE_optimization,
+                                           'debug':True},
+                             'initial_params':{}})
+
+divider = '#'*90
+
+print(divider)
+print('Model test cases')
+print(divider)
 
 for test_case in model_test_cases:
     model_name = test_case['model_name']
@@ -54,24 +47,24 @@ for test_case in model_test_cases:
     #Test with no fixed parameters
     print(model_name + ' - Estimate all parameters')
     model=Model(**initial_params)
-    model.fit(DOY=doy, temperature=temp, verbose=True, **fit_params)
-    model.predict(doy, temp)
+    model.fit(observations=obs, temperature=temp, verbose=True, **fit_params)
+    model.predict(obs, temp)
 
-    print(model_name + ' - do not predict without both doy and temp')
-    with pytest.raises(AssertionError) as a:
-        model.predict(site_years = doy)
-    with pytest.raises(AssertionError) as a:
+    print(model_name + ' - do not predict without both obs and temp')
+    with pytest.raises(TypeError) as a:
+        model.predict(to_predict = obs)
+    with pytest.raises(TypeError) as a:
         model.predict(temperature = temp)
     print(model_name + ' - make prediction with values from fitting')
     predicted = model.predict()
 
     print(model_name + ' - prediction sample size matches input')
     assert len(predicted.shape) == 1, 'predicted array not 1D'
-    assert len(predicted) == len(doy), 'predicted sample size not matching input from fit'
+    assert len(predicted) == len(obs), 'predicted sample size not matching input from fit'
 
-    predicted = model.predict(site_years=doy[1:10], temperature=temp)
+    predicted = model.predict(to_predict=obs[1:10], temperature=temp)
     assert len(predicted.shape) == 1, 'predicted array not 1D'
-    assert len(predicted) == len(doy[1:10]), 'predicted sample size not matching input from predict'
+    assert len(predicted) == len(obs[1:10]), 'predicted sample size not matching input from predict'
     
     # Use estimated parameter values in other tests
     all_parameters = model.get_params()
@@ -80,11 +73,11 @@ for test_case in model_test_cases:
     # Test with all parameters set to a fixed value
     print(model_name + ' - Fix all parameters')
     model = Model(parameters=all_parameters, **initial_params)
-    model.predict(doy, temp)
+    model.predict(obs, temp)
     
-    print(model_name + ' - Do not predict without site_years and temperature \
+    print(model_name + ' - Do not predict without to_predict and temperature \
                         when all parameters are fixed a initialization')
-    with pytest.raises(AssertionError) as a:
+    with pytest.raises(TypeError) as a:
         model.predict()
     
     # For the bootstrap use just the first bootstrap value from here
@@ -96,8 +89,8 @@ for test_case in model_test_cases:
     param, value = all_parameters.popitem()
     single_param = {param:value}
     model = Model(parameters=single_param, **initial_params)
-    model.fit(DOY=doy, temperature=temp, verbose=True, **fit_params)
-    model.predict(doy, temp)
+    model.fit(observations=obs, temperature=temp, verbose=True, **fit_params)
+    model.predict(obs, temp)
     
     fitted_params_with_one_fixed = model.get_params()
     if model_name=='BootstrapModel':
@@ -108,8 +101,8 @@ for test_case in model_test_cases:
     print(model_name + ' - Estimate a single parameter')
     # all_parameters is now minus one due to popitem()
     model = Model(parameters=all_parameters, **initial_params)
-    model.fit(DOY=doy, temperature=temp, verbose=True, **fit_params)
-    model.predict(doy, temp)
+    model.fit(observations=obs, temperature=temp, verbose=True, **fit_params)
+    model.predict(obs, temp)
     
     fitted_params_with_most_fixed = model.get_params()
     if model_name=='BootstrapModel':
@@ -122,7 +115,7 @@ for test_case in model_test_cases:
     print(model_name + ' - Should not predict without fit')
     with pytest.raises(AssertionError) as a:
         model = Model(parameters=single_param, **initial_params)
-        model.predict(doy, temp)
+        model.predict(obs, temp)
     
     # Expect error when a bogus parameter gets passed
     print(model_name + ' - Should not accept unknown parameters')
@@ -132,10 +125,11 @@ for test_case in model_test_cases:
     #Save and load a parameter file
     print(model_name + ' - Save and load parameter file')
     model=Model(**initial_params)
-    model.fit(DOY=doy, temperature=temp, verbose=True, **fit_params)
+    model.fit(observations=obs, temperature=temp, verbose=True, **fit_params)
     model.save_params(model_name+'_params.csv')
     model=Model(parameters=model_name+'_params.csv', **initial_params)
-    model.predict(doy, temp)
+    model.predict(obs, temp)
+    print(divider)
 
 ############################################################
 ############################################################
@@ -173,66 +167,89 @@ def check_known_values(estimated_params, known_params, message):
 
 ##############################
 # Use a specific species dataset that should never change
-vaccinium_doy, vaccinium_temp = utils.load_test_data(name='vaccinium')
+vaccinium_obs, vaccinium_temp = utils.load_test_data(name='vaccinium')
 
-leaves_doy = vaccinium_doy[vaccinium_doy.Phenophase_ID==371]
-flowers_doy = vaccinium_doy[vaccinium_doy.Phenophase_ID==501]
+leaves_obs = vaccinium_obs[vaccinium_obs.Phenophase_ID==371]
+flowers_obs = vaccinium_obs[vaccinium_obs.Phenophase_ID==501]
+
+# thorough but still relatively quick
+thorough_DE_optimization = {'method':'DE', 'debug':True,
+                            'optimizer_params':{'seed':1,
+                                                'popsize':20,
+                                                'maxiter':100}}
 
 test_cases=[]
 test_cases.append({'test_name' : 'Thermal Time Vaccinium Leaves',
-                   'model' : models.Thermal_Time,
-                   'fitting_doy':leaves_doy,
+                   'model' : models.ThermalTime,
+                   'fitting_obs':leaves_obs,
                    'fitting_temp':vaccinium_temp,
-                   'known_model_params':{'F':273},
+                   'known_model_params':{'F':272},
                    'fitting_ranges':{'t1':0, 'T':0, 'F':(0,1000)},
-                   'optimizer_parameters':{'Ns':1000, 'finish':None}})
+                   'fitting_params':thorough_DE_optimization})
 
 test_cases.append({'test_name' : 'Thermal Time Vaccinium Flowers',
-                   'model' : models.Thermal_Time,
-                   'fitting_doy':flowers_doy,
+                   'model' : models.ThermalTime,
+                   'fitting_obs':flowers_obs,
                    'fitting_temp':vaccinium_temp,
                    'known_model_params':{'F':448},
                    'fitting_ranges':{'t1':0, 'T':0, 'F':(0,1000)},
-                   'optimizer_parameters':{'Ns':1000, 'finish':None}})
-
+                   'fitting_params':thorough_DE_optimization})
+                   
 test_cases.append({'test_name' : 'Alternating Vaccinium Leaves',
                    'model' : models.Alternating,
-                   'fitting_doy':leaves_doy,
+                   'fitting_obs':leaves_obs,
                    'fitting_temp':vaccinium_temp,
-                   'known_model_params': {'a':620, 'b':-141, 'c':0},
+                   'known_model_params': {'a':684, 'b':-190, 'c':0},
                    'fitting_ranges':{'a':(600,700), 'b':(-200,-100), 'c':(0.009,0.02), 't1':0, 'threshold':5},
-                   'optimizer_parameters':{'Ns':30}})
+                   'fitting_params':thorough_DE_optimization})
 
 test_cases.append({'test_name' : 'Alternating Vaccinium Flowers',
                    'model' : models.Alternating,
-                   'fitting_doy':flowers_doy,
+                   'fitting_obs':flowers_obs,
                    'fitting_temp':vaccinium_temp,
-                   'known_model_params': {'a':1010, 'b':-465, 'c':0},
+                   'known_model_params': {'a':1026, 'b':-481, 'c':0},
                    'fitting_ranges':{'a':(1000,1100), 'b':(-500,-400), 'c':(0.001,0.01), 't1':0, 'threshold':5},
-                   'optimizer_parameters':{'Ns':30}})
+                   'fitting_params':thorough_DE_optimization})
 
 test_cases.append({'test_name' : 'Uniforc Vaccinium Leaves',
                    'model' : models.Uniforc,
-                   'fitting_doy':leaves_doy,
+                   'fitting_obs':leaves_obs,
                    'fitting_temp':vaccinium_temp,
-                   'known_model_params': {'t1':78, 'b':-2, 'c':8, 'F':8},
+                   'known_model_params': {'t1':84, 'b':-2, 'c':8, 'F':7},
                    'fitting_ranges':{'t1':(50,100), 'b':(-5,5), 'c':(0,20), 'F':(0,20)},
-                   'optimizer_parameters':{'Ns':15}})
+                  'fitting_params':thorough_DE_optimization})
     
 test_cases.append({'test_name' : 'Uniforc Vaccinium Flowers',
                    'model' : models.Uniforc,
-                   'fitting_doy':flowers_doy,
+                   'fitting_obs':flowers_obs,
                    'fitting_temp':vaccinium_temp,
-                   'known_model_params': {'t1':35, 'b':0, 'c':8, 'F':21},
+                   'known_model_params': {'t1':35, 'b':0, 'c':12, 'F':18},
                    'fitting_ranges':{'t1':(25,50), 'b':(-5,5), 'c':(0,20), 'F':(10,30)},
-                   'optimizer_parameters':{'Ns':15}})
+                   'fitting_params':thorough_DE_optimization})
+
+test_cases.append({'test_name' : 'Unichill Vaccinium Flowers',
+                   'model' : models.Unichill,
+                   'fitting_obs':flowers_obs,
+                   'fitting_temp':vaccinium_temp,
+                   'known_model_params': {'t0':-32,'C':71,'F':19,
+                                          'b_f':0,'c_f':10,
+                                          'a_c':-1,'b_c':-4,'c_c':-23},
+                   'fitting_ranges':{'t0':(-40,-10),'C':(50,100),'F':(5,30),
+                                     'b_f':(-10,10),'c_f':(0,20),
+                                     'a_c':(-10,10),'b_c':(-20,0),'c_c':(-25,-5)},
+                   'fitting_params':thorough_DE_optimization})
     
+    
+print(divider)
+print('Known value test cases')
+print(divider)
+
 for case in test_cases:
     print('Testing known values: '+case['test_name'])
     model = case['model'](parameters = case['fitting_ranges'])
-    model.fit(DOY = case['fitting_doy'], temperature=case['fitting_temp'], 
-              method = 'BF', optimizer_params=case['optimizer_parameters'],
-              verbose=True, debug=True)
+    model.fit(observations = case['fitting_obs'], temperature=case['fitting_temp'], 
+              **case['fitting_params'])
     check_known_values(estimated_params = model.get_params(), 
                        known_params = case['known_model_params'],
                        message = case['test_name'])
+    print(divider)

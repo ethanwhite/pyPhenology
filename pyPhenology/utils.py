@@ -1,5 +1,6 @@
 import pandas as pd
 import pkg_resources
+from . import models
 
 def load_test_data(name='vaccinium'):
     """Pre-loaded phenology and associated
@@ -18,18 +19,36 @@ def load_test_data(name='vaccinium'):
     
     Returns
     -------
-    doy, temp : tuple
+    obs, temp : tuple
         Pandas dataframes of phenology observations
         and associated temperatures.
     """
     if name=='vaccinium':
-        doy_file = 'data/vaccinium_doy.csv'
+        obs_file = 'data/vaccinium_obs.csv'
         temp_file= 'data/vaccinium_temperature.csv'
     else:
-        raise Exception('Uknown dataset name: ' + str(name))
+        raise ValueError('Uknown dataset name: ' + str(name))
         
-    doy_file = pkg_resources.resource_stream(__name__, doy_file)
+    obs_file = pkg_resources.resource_stream(__name__, obs_file)
     temp_file = pkg_resources.resource_stream(__name__, temp_file)
-    doy = pd.read_csv(doy_file)
+    obs = pd.read_csv(obs_file)
     temp= pd.read_csv(temp_file)
-    return doy, temp
+    return obs, temp
+
+def load_model(name):
+    if not isinstance(name, str):
+        raise TypeError('name must be string, got' + type(name))
+    if name=='ThermalTime':
+        return models.ThermalTime
+    elif name=='Uniforc':
+        return models.Uniforc
+    elif name=='Unichill':
+        return models.Unichill
+    elif name=='Alternating':
+        return models.Alternating
+    elif name=='MSB':
+        return models.MSB
+    elif name=='Linear':
+        return models.Linear
+    else:
+        raise ValueError('Unknown model name: '+name)
