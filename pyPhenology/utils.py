@@ -50,5 +50,7 @@ def load_model(name):
         return models.MSB
     elif name=='Linear':
         return models.Linear
+    elif name=='Sequential':
+        return models.Sequential
     else:
         raise ValueError('Unknown model name: '+name)
