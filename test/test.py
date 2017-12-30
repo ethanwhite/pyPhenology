@@ -239,7 +239,15 @@ test_cases.append({'test_name' : 'Unichill Vaccinium Flowers',
                                      'b_f':(-10,10),'c_f':(0,20),
                                      'a_c':(-10,10),'b_c':(-20,0),'c_c':(-25,-5)},
                    'fitting_params':thorough_DE_optimization})
-    
+
+test_cases.append({'test_name' : 'Sequential Vaccinium Flowers',
+                   'model' : models.Sequential,
+                   'fitting_obs':flowers_obs,
+                   'fitting_temp':vaccinium_temp,
+                   'known_model_params':{'t0':0,'c_t_min':0,'c_t_opt':5,
+                                         'c_t_max':10, 'C':20, 'f_t':5, 'F':200},
+                   'fitting_ranges':{},
+                   'fitting_params':thorough_DE_optimization})
     
 print(divider)
 print('Known value test cases')

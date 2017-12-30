@@ -34,12 +34,22 @@ class Sequential(_base_model):
     """
     def __init__(self, parameters={}):
         _base_model.__init__(self)
-        self.all_required_parameters = {'t0':(-67,298),'c_t_min':(-25,25),'c_t_opt':(0,1000),
+        self.all_required_parameters = {'t0':(-67,298),'c_t_min':(-25,10),'c_t_opt':(-10,10),
                                         'c_t_max':(0,10), 'C':(0,100), 'f_t':(0,20), 'F':(0,1000)}
         self._organize_parameters(parameters)
     
     def _apply_model(self, temperature, doy_series, t0, c_t_min, c_t_opt, c_t_max,
                                                      C, f_t, F):
+        
+        bad_values = True if c_t_min >= c_t_opt else False
+        bad_values = True if c_t_min >= c_t_max else False
+        bad_values = True if c_t_opt >= c_t_max else False
+        
+        if bad_values:
+            to_return = temperature[0].copy()
+            to_return[:] = 9999
+            return to_return
+        
         chill_days = utils.triangle_response(temperature.copy(), t_min=c_t_min,
                                              t_opt = c_t_opt, t_max=c_t_max)
         chill_days[doy_series<t0]=0
