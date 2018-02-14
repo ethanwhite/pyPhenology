@@ -122,6 +122,6 @@ Model RMSE Using Bootstrapping
     
                 results = results.append(results_this_set, ignore_index=True)
     
-    
+    @savefig example_rmse_boxplot.png width=4in
     bp = results.boxplot(column='rmse', by=['dataset','phenophase','model'])
 
